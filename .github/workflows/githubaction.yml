@@ -1,0 +1,13 @@
+name: Continuous Integration task 1
+on: push
+jobs:
+  my-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: maven-build
+        run: echo "Task1 - maven build"
+        shell: cmd
+          run: clean install 
+
+
+        
