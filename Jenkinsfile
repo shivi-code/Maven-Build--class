@@ -1,27 +1,57 @@
-node(){
+pipeline {
+    agent any
 
-	def sonarHome = tool name: 'SonarScanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation'
-	
-	stage('Code Checkout'){
-		checkout changelog: false, poll: false, scm: scmGit(branches: [[name: '*/master']], extensions: [], userRemoteConfigs: [[credentialsId: 'GitHubCreds', url: 'https://github.com/anujdevopslearn/MavenBuild']])
-	}
-	stage('Build Automation'){
-		sh """
-			ls -lart
-			mvn clean install
-			ls -lart target
+    environment {
+        IMAGE_NAME = "myapp:${BUILD_NUMBER}"
+    }
 
-		"""
-	}
-	
-	stage('Code Scan'){
-		withSonarQubeEnv(credentialsId: 'SonarQubeCreds') {
-			sh "${sonarHome}/bin/sonar-scanner"
-		}
-		
-	}
-	
-	stage('Code Deployment'){
-		deploy adapters: [tomcat9(credentialsId: 'TomcatCreds', path: '', url: 'http://54.197.62.94:8080/')], contextPath: 'Planview', onFailure: false, war: 'target/*.war'
-	}
+    stages {
+        stage('Checkout') {
+            steps {
+                git branch: 'main', url: 'https://github.com/your/repo.git'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    docker.build(IMAGE_NAME)
+                }
+            }
+        }
+
+        stage('Run in Docker') {
+            steps {
+                script {
+                    docker.image(IMAGE_NAME).inside {
+                        sh 'echo "Run your computation here"'
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to Container') {
+            steps {
+                sh '''
+                docker run -d --name myapp_container ${IMAGE_NAME}
+                '''
+            }
+        }
+
+        stage('Clean Up') {
+            steps {
+                sh '''
+                docker stop myapp_container
+                docker rm myapp_container
+                docker rmi ${IMAGE_NAME}
+                '''
+            }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
+        }
+    }
 }
